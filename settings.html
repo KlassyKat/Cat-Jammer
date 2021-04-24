@@ -1,0 +1,295 @@
+<style>
+    body * {
+        font-family: 'Montserrat', sans-serif;
+        user-select: none;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        color: white;
+    }
+
+    .control-bar {
+        height: 32px;
+        font-size: 19px;
+        padding: 0 0 0 8px;
+        display: grid;
+        grid-template-columns: 1fr 32px;
+        background-color: #0d0d0d;
+        -webkit-app-region: drag;
+        align-items: center;
+    }
+
+    .control-bar>span:hover {
+        background-color: #222;
+    }
+
+    .control-bar>span {
+        padding: 7px;
+        cursor: pointer;
+        -webkit-app-region: no-drag;
+        stroke: #707070;
+        stroke-width: 5;
+    }
+
+    .setting-item {
+        margin-bottom: 10px;
+    }
+
+    .setting-header {
+        background-color: #222222;
+        padding: 8px 20px;
+        margin-bottom: 10px;
+    }
+
+    .setting-label {
+        margin: 0;
+    }
+
+    #shortcut-wrapper {
+        display: grid;
+        grid-template-columns: min-content 55vw min-content;
+        margin-left: 5px;
+        align-items: center;
+        row-gap: 5px;
+    }
+
+    .shortcut-label {
+        white-space: nowrap;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .shortcut-input {
+        border: 2px solid #00000000;
+        border-right: none;
+        outline: none;
+        border-radius: 4px 0 0 4px;
+        background-color: #0f0f0f;
+        margin-left: 5px;
+        color: white;
+        padding-left: 3.3px;
+        font-size: 1em;
+        line-height: 1.5em;
+        height: 33px;
+        transition: 0.2s all ease-in-out;
+    }
+
+    .shortcut-input:focus {
+        border: 2px solid white;
+        border-right: none;
+        caret-color: #00000000;
+    }
+
+    .shortcut-input:focus + button {
+        border: 2px solid white;
+        border-left: none;
+    }
+
+    button {
+        border: 2px solid #00000000;
+        border-left: none;
+        margin: 0;
+        padding: 0;
+        padding-left: 2px;
+        height: 33px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 0 4px 4px 0;
+        background-color: #0F0F0F;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        outline: none;
+    }
+
+    button:hover {
+        background-color: #7e7e7e;
+    }
+
+    button>svg {
+        fill: white;
+        stroke-width: 0;
+        transform: rotate(45deg);
+    }
+</style>
+<body onload="loadSettings()">
+    <div class="control-bar">
+        <div></div>
+        <span onclick="closeWindow()" class="close-window">
+            <svg viewBox="0 0 32 32">
+                <line x1="2" y1="2" x2="30" y2="30" />
+                <line x1="2" y1="30" x2="30" y2="2" />
+            </svg>
+        </span>
+    </div>
+    <div class="setting-item">
+        <div class="setting-header">
+            <h2 class="setting-label"><strong>Shortcuts</strong></h2>
+        </div>
+        <div id="shortcut-wrapper">
+            <!-- Play/Pause Shortcut -->
+            <label class="shortcut-label">Play/Pause:</label>
+            <input onclick="focusShortcutInput(this.id)" onblur="blurShortcutInput()" onkeypress="return false" id="playpause" class="shortcut-input">
+            <button onclick="clearShortcut('playpause')">
+                <svg width="30px" viewBox="0 0 10 10">
+                    <rect x="4.5" y="2" width="1" height="6" />
+                    <rect y="4.5" x="2" height="1" width="6" />
+                </svg>
+            </button>
+
+            <!-- Skip Shortcut -->
+            <label class="shortcut-label">Skip Song:</label>
+            <input onclick="focusShortcutInput(this.id)" onblur="blurShortcutInput()" onkeypress="return false" id="skipsong" class="shortcut-input">
+            <button onclick="clearShortcut('skipsong')">
+                <svg width="30px" viewBox="0 0 10 10">
+                    <rect x="4.5" y="2" width="1" height="6" />
+                    <rect y="4.5" x="2" height="1" width="6" />
+                </svg>
+            </button>
+         
+            <!-- Volume Up -->
+            <label class="shortcut-label">Volume Up:</label>
+            <input onclick="focusShortcutInput(this.id)" onblur="blurShortcutInput()" onkeypress="return false" id="volup" class="shortcut-input">
+            <button onclick="clearShortcut('volup')">
+                <svg width="30px" viewBox="0 0 10 10">
+                    <rect x="4.5" y="2" width="1" height="6" />
+                    <rect y="4.5" x="2" height="1" width="6" />
+                </svg>
+            </button>
+
+            <!-- Volume Down -->
+            <label class="shortcut-label">Volume Down:</label>
+            <input onclick="focusShortcutInput(this.id)" onblur="blurShortcutInput()" onkeypress="return false" id="voldown" class="shortcut-input">
+            <button onclick="clearShortcut('voldown')">
+                <svg width="30px" viewBox="0 0 10 10">
+                    <rect x="4.5" y="2" width="1" height="6" />
+                    <rect y="4.5" x="2" height="1" width="6" />
+                </svg>
+            </button>
+            <!-- Jam -->
+            <label class="shortcut-label">Jam:</label>
+            <input onclick="focusShortcutInput(this.id)" onblur="blurShortcutInput()" onkeypress="return false" id="jam" class="shortcut-input">
+            <button onclick="clearShortcut('jam')">
+                <svg width="30px" viewBox="0 0 10 10">
+                    <rect x="4.5" y="2" width="1" height="6" />
+                    <rect y="4.5" x="2" height="1" width="6" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</body>
+
+<script>
+    const { ipcRenderer } = require('electron');
+
+    let inputEl = null;
+    let activeShortcut = '';
+    let shortcutVal = [];
+    let oldShortcut = [];
+    let settings = {};
+
+
+    function loadSettings() {
+        ipcRenderer.send('get-settings');
+    }
+    ipcRenderer.on('send-settings', (e, data) => {
+        console.log(data);
+        settings = data;
+        for(let setting in settings) {
+            console.log(setting);
+            let el = document.getElementById(setting);
+            el.value = settings[setting].join('+');
+        }
+    });
+
+    function focusShortcutInput(shortcut) {
+        shortcutVal = [];
+        activeShortcut = shortcut;
+        inputEl = document.getElementById(shortcut);
+        document.addEventListener("keydown", processShortcut);
+        document.addEventListener("keyup", confirmShortcut);
+    }
+
+
+    function processShortcut(e) {
+        e.preventDefault();
+        let newKey = e.key;
+        //Handle Edge Cases
+        if(e.code == 'Space') {
+            newKey = e.code;
+        } else if(e.key == 'Control') {
+            newKey = 'Ctrl';
+        } else if(e.key.indexOf('Arrow') > -1) {
+            newKey = e.key.slice(5);
+        }
+
+        if(newKey.length == 1) {
+            newKey = newKey.toUpperCase();
+        }
+        if(!shortcutVal.includes(newKey)) {
+            if(newKey == 'Ctrl') {
+                shortcutVal.unshift(newKey);
+            } else if(newKey == 'Shift') {
+                if(!shortcutVal.includes('Ctrl')) {
+                    shortcutVal.unshift(newKey);
+                } else {
+                    shortcutVal.splice(1, 0, newKey);
+                }
+            } else if(newKey == 'Alt') {
+                if(shortcutVal.includes('Ctrl') && shortcutVal.includes('Shift')) {
+                    shortcutVal.splice(2, 0, newKey);
+                } else if(shortcutVal.includes('Ctrl') || shortcutVal.includes('Shift')) {
+                    shortcutVal.splice(1, 0, newKey)
+                } else {
+                    shortcutVal.unshift(newKey);
+                }
+            } else {
+                shortcutVal.push(newKey);
+            }
+        }
+        inputEl.value = shortcutVal.join('+');
+    }
+
+    function confirmShortcut() {
+        let shortcutCheck = shortcutVal.filter(key => {
+            if(key == 'Ctrl' || key == 'Shift' || key == 'Alt') {
+                return true;
+            } else {
+                return false;
+            }
+        });
+
+        if(shortcutCheck.length == 0) {
+            inputEl.value = oldShortcut.join('+');
+        } else {
+            settings[activeShortcut] = shortcutVal;
+            oldShortcut = shortcutVal;
+            saveSettings();
+        }
+        inputEl.blur();
+    }
+
+    function clearShortcut(shortcut) {
+        inputEl = document.getElementById(shortcut);
+        settings[shortcut] = [];
+        inputEl.value = '';
+        saveSettings();
+    }
+
+    function blurShortcutInput() {
+        document.removeEventListener("keydown", processShortcut);
+        document.removeEventListener("keyup", confirmShortcut);
+    }
+
+    function saveSettings() {
+        ipcRenderer.send('new-settings', settings);
+        console.log(settings);
+    }
+
+    function closeWindow() {
+        ipcRenderer.send('close-settings');
+    }
+</script>
