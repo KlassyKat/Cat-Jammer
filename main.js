@@ -8,8 +8,12 @@ const {
     Menu,
     MenuItem,
     ipcMain,
-    globalShortcut
+    globalShortcut,
+    session
 } = require('electron');
+
+const { ElectronBlocker } = require('@cliqz/adblocker-electron');
+const fetch = require('cross-fetch');
 
 let Store = require('electron-store');
 let store = new Store();
@@ -46,7 +50,7 @@ app.on('ready', () => {
         height: mainWindowState.height,
         minHeight: 500,
         frame: false,
-        backgroundColor: '#333333',
+        backgroundColor: '#111111',
         icon: iconPath
     });
 
@@ -60,7 +64,7 @@ app.on('ready', () => {
         width: mainWindowState.width,
         height: mainWindowState.height - 32
     });
-    view.webContents.loadURL('https://www.epidemicsound.com');
+    changePlatform(store.get('settings.platform'));
     view.webContents.backgroundThrottling = false;
     view.webContents.insertCSS(`
         ::-webkit-scrollbar {
@@ -104,6 +108,10 @@ app.on('ready', () => {
 
     view.webContents.on('media-started-playing', () => {
         getSongTitle();
+    });
+
+    view.webContents.on('media-paused', () => {
+        localServer.endJam();
     })
 
     let rightClick = new Menu();
@@ -149,7 +157,7 @@ app.on('ready', () => {
           height: newBounds.height - 32
         })
     })
-    mainWindow.on('resize', () => {
+    mainWindow.on('resized', () => {
     let newBounds = mainWindow.getBounds();
     view.setBounds({
         x: 0,
@@ -223,13 +231,47 @@ ipcMain.on('new-settings', (e, data) => {
 })
 
 ipcMain.on('get-settings', () => {
-    let settings = store.get('settings') ? store.get('settings') : {};
+    sendSettings();
+});
+
+function sendSettings() {
+    let settings = store.get('settings') ? store.get('settings') : 
+    {
+        shortcuts: {}
+    };
     settingsWindow.webContents.send('send-settings', settings);
-})
+}
 
 function setSettings(data) {
+    let oldPlatform = store.get('settings.platform') ? store.get('settings.platform') : 'epidemic-sound';
     store.set('settings', data);
     registerShortcuts();
+    console.log(store.get('settings.platform'));
+    console.log(oldPlatform);
+    if(store.get('settings.platform') && store.get('settings.platform') != oldPlatform) {
+        changePlatform(store.get('settings.platform'));
+    }
+}
+
+function changePlatform(platform) {
+    switch(platform) {
+        case 'epidemic-sounds':
+            view.webContents.loadURL('https://www.epidemicsound.com');
+            break;
+        case 'youtube':
+            view.webContents.loadURL('https://www.youtube.com');
+            break;
+        case 'soundcloud':
+            view.webContents.loadURL('https://soundcloud.com');
+            break;
+        default:
+            view.webContents.loadURL('https://www.epidemicsound.com');
+            break;
+    }
+
+    ElectronBlocker.fromPrebuiltAdsAndTracking(fetch).then(blocker => {
+        blocker.enableBlockingInSession(session.defaultSession);
+    });
 }
 
 class GlobalShortcut {
@@ -245,36 +287,41 @@ class GlobalShortcut {
     }
 
     register() {
-        globalShortcut.register(this.shortcut, this.action);
+        try {
+            globalShortcut.register(this.shortcut, this.action);
+        } catch(err) {
+            store.set(`settings.shortcuts.${this.name}`, []);
+            sendSettings();
+        }
     }
 }
 let gloablShortcuts = {};
 function registerShortcuts() {
-    console.log('we are at least getting here ?')
+    console.log('we are at least getting here ?');
     let shortcuts = [
         {
             name: 'playpause',
-            shortcut: store.get('settings.playpause'),
+            shortcut: store.get('settings.shortcuts.playpause'),
             action: toggleMusic
         },
         {
             name: 'skipsong',
-            shortcut: store.get('settings.skipsong'),
+            shortcut: store.get('settings.shortcuts.skipsong'),
             action: skipSong
         },
         {
             name: 'volup',
-            shortcut: store.get('settings.volup'),
+            shortcut: store.get('settings.shortcuts.volup'),
             action: volumeUp
         },
         {
             name: 'voldown',
-            shortcut: store.get('settings.voldown'),
+            shortcut: store.get('settings.shortcuts.voldown'),
             action: volumeDown
         },
         {
             name: 'jam',
-            shortcut: store.get('settings.jam'),
+            shortcut: store.get('settings.shortcuts.jam'),
             action: jamSpeed
         },
     ];
@@ -297,114 +344,294 @@ async function launchPuppeteer() {
 }
 
 async function toggleMusic() {
+    let platform = store.get('settings.platform') ? store.get('settings.platform') : 'epidemic-sound';
     let page = null;
-    try {
-        page = await pie.getPage(browser, view);
-    } catch(err) {
-        console.log(err);
-        console.log('senpai baka >-<');
-    }
+    switch(platform) {
+        case 'epidemic-sound':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
 
-    if(page) {
-        let playBtn = await page.$("a[title=Play]");
-        let pauseBtn = await page.$("a[title=Pause]");
-        if(playBtn) {
-            playBtn.click();
-        } else if(pauseBtn) {
-            pauseBtn.click();
-        } else {
-            console.log("I can\'t senpai >-<");
-        }
+            if(page) {
+                let playBtn = await page.$("a[title=Play]");
+                let pauseBtn = await page.$("a[title=Pause]");
+                if(playBtn) {
+                    playBtn.click();
+                } else if(pauseBtn) {
+                    pauseBtn.click();
+                } else {
+                    console.log("I can\'t senpai >-<");
+                }
+            }
+            break;
+        case 'youtube':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+
+            if(page) {
+                await page.keyboard.press('KeyK');
+            }
+            break;
+        case 'soundcloud':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+
+            if(page) {
+                await page.keyboard.press('Space');
+            }
+            break;
     }
+    
 }
 
 async function skipSong() {
     console.log('skip');
+    let platform = store.get('settings.platform') ? store.get('settings.platform') : 'epidemic-sound';
     let page = null;
-    try {
-        page = await pie.getPage(browser, view);
-    } catch(err) {
-        console.log(err);
-        console.log('senpai baka >-<');
+    switch(platform) {
+        case 'epidemic-sound':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let skipBtn = await page.$("a[title=Next]");
+                if(skipBtn) {
+                    skipBtn.click();
+                } else {
+                    console.log("I can\'t senpai >-<");
+                }
+            }
+            break; 
+        case 'youtube':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                await page.keyboard.down('Shift');
+                await page.keyboard.press('KeyN');
+                await page.keyboard.up('Shift');
+            }
+            break;
+        case 'soundcloud':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("ArrowRight");
+                await page.keyboard.up("Shift");
+            }
+            break; 
     }
-
-    if(page) {
-        let skipBtn = await page.$("a[title=Next]");
-        if(skipBtn) {
-            skipBtn.click();
-        } else {
-            console.log("I can\'t senpai >-<");
-        }
-    }
+    
 }
 async function volumeUp() {
     console.log('up');
     let page = null;
-    try {
-        page = await pie.getPage(browser, view);
-    } catch(err) {
-        console.log(err);
-        console.log('senpai baka >-<');
-    }
-
-    if(page) {
-        let volTrack = await page.$(".rc-slider-step");
-        volTrack = await volTrack.boundingBox();
-        let volPos = await page.$(".rc-slider-handle");
-        volPos = await volPos.boundingBox();
-        if(volTrack && volPos) {
-            let mouseX = (volPos.x + volPos.width) + (volTrack.width / 20);
-            let mouseY = volTrack.y;
-            page.mouse.click(mouseX, mouseY);
-        } else {
-            console.log("No find volume (ᗒᗣᗕ)");
-        }
+    let platform = store.get('settings.platform') ? store.get('settings.platform') : 'epidemic-sound';
+    switch(platform) {
+        case 'epidemic-sound':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let volTrack = await page.$(".rc-slider-step");
+                volTrack = await volTrack.boundingBox();
+                let volPos = await page.$(".rc-slider-handle");
+                volPos = await volPos.boundingBox();
+                if(volTrack && volPos) {
+                    let mouseX = (volPos.x + volPos.width) + (volTrack.width / 20);
+                    let mouseY = volTrack.y;
+                    page.mouse.click(mouseX, mouseY);
+                } else {
+                    console.log("No find volume (ᗒᗣᗕ)");
+                }
+            }
+            break;
+        case 'youtube':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let videoPlayer = await page.$(".video-stream");
+                videoPlayer.focus();
+                let slider = await page.$(".ytp-volume-slider");
+                await slider.focus();
+                await page.keyboard.press("ArrowUp");
+                await videoPlayer.focus();
+            }
+            break;
+        case 'soundcloud':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("ArrowUp");
+                await page.keyboard.up("Shift");
+            }
+            break;
     }
 }
 async function volumeDown() {
+    let platform = store.get('settings.platform') ? store.get('settings.platform') : 'epidemic-sound';
     let page = null;
-    try {
-        page = await pie.getPage(browser, view);
-    } catch(err) {
-        console.log(err);
-        console.log('senpai baka >-<');
-    }
-
-    if(page) {
-        let volTrack = await page.$(".rc-slider-step");
-        volTrack = await volTrack.boundingBox();
-        let volPos = await page.$(".rc-slider-handle");
-        volPos = await volPos.boundingBox();
-        if(volTrack && volPos) {
-            let mouseX = (volPos.x) - (volTrack.width / 20);
-            let mouseY = volTrack.y;
-            page.mouse.click(mouseX, mouseY);
-        } else {
-            console.log("No find volume (ᗒᗣᗕ)");
-        }
+    switch(platform) {
+        case 'epidemic-sound':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let volTrack = await page.$(".rc-slider-step");
+                volTrack = await volTrack.boundingBox();
+                let volPos = await page.$(".rc-slider-handle");
+                volPos = await volPos.boundingBox();
+                if(volTrack && volPos) {
+                    let mouseX = (volPos.x) - (volTrack.width / 20);
+                    let mouseY = volTrack.y;
+                    page.mouse.click(mouseX, mouseY);
+                } else {
+                    console.log("No find volume (ᗒᗣᗕ)");
+                }
+            }
+            break;
+        case 'youtube':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let videoPlayer = await page.$(".video-stream");
+                videoPlayer.focus();
+                let slider = await page.$(".ytp-volume-slider");
+                await slider.focus();
+                await page.keyboard.press("ArrowDown");
+                await videoPlayer.focus();
+            }
+            break;
+        case 'soundcloud':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                await page.keyboard.down("Shift");
+                await page.keyboard.press("ArrowDown");
+                await page.keyboard.up("Shift");
+            }
+            break;
     }
 }
 function jamSpeed() {
-    console.log('jam');
+    let currentTime = Date.now();
+    localServer.jamSpeed(currentTime);
 }
 
 let songTitle = '';
 async function getSongTitle() {
+    let platform = store.get('settings.platform') ? store.get('settings.platform') : 'epidemic-sound';
     let page = null;
-    try {
-        page = await pie.getPage(browser, view);
-    } catch(err) {
-        console.log(err);
-        console.log('senpai baka >-<');
-    }
-
-    if(page) {
-        let trackEl = await page.$('.src-mainapp-player-components-___TrackInfo__title___1NuSH');
-        let trackName = await trackEl.evaluate(node => node.innerText);
-        if(trackName == songTitle) {
-            return;
-        }
-        songTitle = trackName;
-        localServer.getSong(songTitle);
+    switch(platform) {
+        case 'epidemic-sound':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let trackEl = await page.$('.src-mainapp-player-components-___TrackInfo__title___1NuSH');
+                let trackName = await trackEl.evaluate(node => node.innerText);
+                if(trackName == songTitle) {
+                    return;
+                }
+                songTitle = trackName;
+                localServer.getSong(songTitle, platform);
+            }
+            break;
+        case 'youtube':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let trackEl = await page.$('h1 > .ytd-video-primary-info-renderer');
+                let trackName = await trackEl.evaluate(node => node.innerText);
+                if(trackName == songTitle) {
+                    return;
+                }
+                songTitle = trackName;
+                localServer.getSong(songTitle, platform);
+            }
+            break;
+        case 'soundcloud':
+            try {
+                page = await pie.getPage(browser, view);
+            } catch(err) {
+                console.log(err);
+                console.log('senpai baka >-<');
+            }
+        
+            if(page) {
+                let trackEl = await page.$('a.playbackSoundBadge__titleLink span:last-child');
+                let trackName = await trackEl.evaluate(node => node.innerText);
+                if(trackName == songTitle) {
+                    return;
+                }
+                let artistEl = await page.$('playbackSoundBadge__lightLink');
+                let artist = artistEl.evaluate(node => node.innerText);
+                songTitle = trackName;
+                localServer.getSong(songTitle, platform, artist);
+            }
+            break;
     }
 }

@@ -26,6 +26,10 @@
             box-sizing: border-box;
         }
 
+        canvas {
+            transition: 0.3s all ease-in-out;
+        }
+
         #song-wrapper {
             background-color: #ff8000;
             display: flex;
@@ -68,7 +72,7 @@
         <div id="details">
             <span class="tag">Song: </span>
             <span id="title">Title</span>
-            <span class="tag">By: </span>
+            <span class="tag" id="artist-label">By: </span>
             <span id="artist">Artist</span>
         </div>
     </div>
@@ -76,10 +80,6 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const server = io();
-
-    let fps = 30;
-    let fpsInterval;
-    let obsRetime = 1;
 
     let jamFrame = 0;
     let jamCanvas = document.getElementById('cat-jam');
@@ -90,40 +90,70 @@
     let songEl = document.getElementById('song-wrapper');
     let titleEl = document.getElementById('title');
     let artistEl = document.getElementById('artist');
+    let artistLabel = document.getElementById('artist-label');
 
     server.on('song', (data) => {
         let { title, artist, bpm } = data;
         console.log(data);
-        //BPM
-        if(bpm < 30) {
-            jamCanvas.style.opacity = 0;
-            return;
-        }
-        jamCanvas.style.opacity = 1;
-        fpsInterval = (33.333 / (bpm/92)) * obsRetime;
-        fps = 1000/fpsInterval;
 
         //Song Display
-        titleEl. textContent = title;
-        artistEl.textContent = artist;
+        titleEl.textContent = title;
+        if(artist) {
+            artistLabel.style.display = 'flex';
+            artistEl.style.display = 'flex';
+            artistEl.textContent = artist;
+        } else {
+            artistLabel.style.display = 'none';
+            artistEl.style.display = 'none';
+            artistEl.textContent = '';
+        }
         animateIn();
-
-
-        console.log('BPM: ', bpm);
-        console.log('FPS: ', fps);
     });
 
     let beats = [];
     let expire = null;
-    let 
+    let jamInterval = 20;
+    let animateTimeout = null;
+
+    server.on('song-over', () => {
+        jamInterval = 20;
+        jamCanvas.style.opacity = 0;
+    })
+
     server.on('jam-interval', (triggerTime) => {
         clearTimeout(expire);
         let delay = Date.now() - triggerTime;
+        console.log('Delay:', delay);
         expire = setTimeout(clearBeats, 10000);
+        beats.push(triggerTime);
+        if(beats.length == 4) {
+            calculateBeat();
+        }
     });
 
     function clearBeats() {
+        beats = [];
+    }
 
+    function calculateBeat() {
+        let intervals = [];
+        console.log(beats);
+        for(beat in beats) {
+            if(beats[parseInt(beat) + 1]) {
+                intervals.push(beats[parseInt(beat) + 1] - beats[beat]);
+            }
+        }
+        beats = [];
+        let interval = intervals.reduce((a, b) => {
+           return a + b;
+        }, 0) / intervals.length;
+        console.log(intervals);
+        console.log(interval);
+        jamFrame = 12;
+        jamInterval = interval/23;
+        jamCanvas.style.opacity = 1;
+        clearTimeout(animateTimeout);
+        animate();
     }
 
     function animateIn() {
@@ -141,13 +171,11 @@
             newImg.src = `${i}.png`;
             frames.push(newImg);
         }
-        fpsInterval = 1000 / fps;
-        animate();
     }
 
 
     function animate() {
-        setTimeout(animate, fpsInterval);
+        animateTimeout = setTimeout(animate, jamInterval);
         //Animation
         ctx.clearRect(0, 0, jamCanvas.width, jamCanvas.height);
         ctx.drawImage(frames[jamFrame], 0, 0, 640, 640);
@@ -155,6 +183,10 @@
         if(jamFrame >= 23) {
             jamFrame = 1;
         }
+    }
+
+    function stopAnimate() {
+        jamCanvas.style.opacity = 0;
     }
 </script>
 </html>

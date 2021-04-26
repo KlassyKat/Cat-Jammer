@@ -114,6 +114,19 @@
         stroke-width: 0;
         transform: rotate(45deg);
     }
+
+    select {
+        border-radius: 5px;
+        color: white;
+        background-color: #151515;
+        cursor: pointer;
+        margin: 0 5px;
+        border: none;
+        height: 33px;
+        font-size: 1em;
+        outline: none;
+        grid-column: 2/4;
+    }
 </style>
 <body onload="loadSettings()">
     <div class="control-bar">
@@ -178,6 +191,14 @@
                     <rect y="4.5" x="2" height="1" width="6" />
                 </svg>
             </button>
+
+            <!-- Platform -->
+            <label class="shortcut-label">Platform:</label>
+            <select name="platform-select" id="platform-select" onchange="changePlatform(this.value)">
+                <option value="epidemic-sound" selected>Epidemic Sound</option>
+                <option value="youtube">Youtube</option>
+                <option value="soundcloud">Soundcloud</option>
+            </select>
         </div>
     </div>
 </body>
@@ -189,7 +210,9 @@
     let activeShortcut = '';
     let shortcutVal = [];
     let oldShortcut = [];
-    let settings = {};
+    let settings = {
+        shortcuts: {}
+    };
 
 
     function loadSettings() {
@@ -198,10 +221,13 @@
     ipcRenderer.on('send-settings', (e, data) => {
         console.log(data);
         settings = data;
-        for(let setting in settings) {
+        for(let setting in settings.shortcuts) {
             console.log(setting);
             let el = document.getElementById(setting);
-            el.value = settings[setting].join('+');
+            el.value = settings.shortcuts[setting].join('+');
+        }
+        if(settings.platform) {
+            document.getElementById('platform-select').value = settings.platform;
         }
     });
 
@@ -216,6 +242,9 @@
 
     function processShortcut(e) {
         e.preventDefault();
+        console.log(e);
+        console.log(e.key);
+        console.log(e.code);
         let newKey = e.key;
         //Handle Edge Cases
         if(e.code == 'Space') {
@@ -224,7 +253,29 @@
             newKey = 'Ctrl';
         } else if(e.key.indexOf('Arrow') > -1) {
             newKey = e.key.slice(5);
+        } else if(e.code.indexOf('pad') > 0) {
+            switch(e.code) {
+                case 'NumpadDecimal':
+                    newKey = 'numdec';
+                    break;
+                case 'NumpadAdd':
+                    newKey = 'numadd';
+                    break;
+                case 'NumpadSubtract':
+                    newKey = 'numsub';
+                    break;
+                case 'NumpadMultiply':
+                    newKey = 'nummult';
+                    break;
+                case 'NumpadDivide':
+                    newKey = 'numdiv';
+                    break;
+                default:
+                    newKey = 'num' + e.code.charAt(e.code.length-1);
+            }
         }
+
+        console.log('Key:', newKey);
 
         if(newKey.length == 1) {
             newKey = newKey.toUpperCase();
@@ -265,7 +316,8 @@
         if(shortcutCheck.length == 0) {
             inputEl.value = oldShortcut.join('+');
         } else {
-            settings[activeShortcut] = shortcutVal;
+            console.log(shortcutVal);
+            settings.shortcuts[activeShortcut] = shortcutVal;
             oldShortcut = shortcutVal;
             saveSettings();
         }
@@ -274,7 +326,7 @@
 
     function clearShortcut(shortcut) {
         inputEl = document.getElementById(shortcut);
-        settings[shortcut] = [];
+        settings.shortcuts[shortcut] = [];
         inputEl.value = '';
         saveSettings();
     }
@@ -282,6 +334,11 @@
     function blurShortcutInput() {
         document.removeEventListener("keydown", processShortcut);
         document.removeEventListener("keyup", confirmShortcut);
+    }
+
+    function changePlatform(value) {
+        settings.platform = value;
+        saveSettings();
     }
 
     function saveSettings() {
